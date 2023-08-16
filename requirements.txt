@@ -1,0 +1,6 @@
+Django
+psycopg2-binary
+whitenoise
+gunicorn
+selenium == 4.4.3
+requests
