@@ -91,96 +91,218 @@ def firefoxdriver(prxy):
     options=get_driver_options(ip,port)
     driver = FirefoxDriver(options=options,executable_path=os.path.join(BASE_DIR,'geckodriver.exe'),firefox_binary=binary,proxy=prxy)
     return driver
-
-
-def doClick(button,driver):
-    """takes an element and simulates clicks"""
-    hover = ActionChains(driver).move_to_element(button)
-    hover.click().perform()
-    time.sleep(5)
-    ##c=driver.current_window_handle
-    ##adHandle(driver,c)
-    return
-def start_scraping(driver,url,click_count):
+def click(driver,div):
+    global click_count
     try:
+        hover = ActionChains(driver).move_to_element(div)
+        hover.click().perform()
+    except Exception as e:
+        print(str(e))
+    finally:
+        handles=driver.window_handles
+        driver.switch_to.window(handles[0])
+        click_count += 1
+        c=driver.current_window_handle
+
+def click_frames(driver, locator):
+    global click_count
+    frames=WebDriverWait(driver,1000).until(EC.presence_of_all_elements_located(locator))
+    for frame in frames:
+        try:
+            i_frame=WebDriverWait(driver,10).until(EC.frame_to_be_available_and_switch_to_it(frame))
+            click_frame(i_frame)
+        except Exception as e:
+            print(str(e))
+            continue
+def click(driver,div):
+    global click_count
+    try:
+        hover = ActionChains(driver).move_to_element(div)
+        hover.click().perform()
+    except Exception as e:
+        print(str(e))
+    finally:
+        handles=driver.window_handles
+        driver.switch_to.window(handles[0])
+        click_count += 1
+        c=driver.current_window_handle
+def click_divs(driver):
+    global click_count
+    divs=WebDriverWait(driver,100).until(EC.presence_of_all_elements_located((By.XPATH,"/html/div")))
+    for div in divs:
+        try:
+            hover = ActionChains(driver).move_to_element(div)
+            hover.click().perform()
+        except Exception as e:
+            print(str(e))
+        finally:
+            handles=driver.window_handles
+            driver.switch_to.window(handles[0])
+            click_count += 1
+            c=driver.current_window_handle
+        #EC.presence_of_element_located((By.CSS_SELECTOR,f"div[style='{style}']")))
+        #EC.presence_of_element_located((By.CLASS_NAME,class_name)))
+
+def click_frame(driver,i_frame):
+    global click_count
+    driver.switch_to.frame(i_frame)
+    ad =  WebDriverWait(driver,1000).until(EC.presence_of_element_located(By.TAG_NAME,'html'))
+    ad.click()
+    try:
+        driver.switch_to.default_content()
+    except Exception as e:
+        print(str(e))
+    finally:
+        handles=driver.window_handles
+        driver.switch_to.window(handles[0])
+        click_count += 1
+def start_scraping(driver,url):
+    try:
+        global click_count
+        driver.execute_script('Object.defineProperty(navigator,"webdriver",{get: ()=>undefined})')
         driver.get(url)
         driver.delete_all_cookies()
-        time.sleep(1)
+        html = driver.page_source
+        print(html)
         driver.get(url)
         print("Page title: "+ driver.title)
-        flag=randint(1,2)
-        if url == 'https://tpsychic.onrender.com/':
-            button=WebDriverWait(driver,10).until(EC.presence_of_element_located((By.PARTIAL_LINK_TEXT,"Get Started")))
-            print(f"button text {button.text}")
-            print(f"button text {button.text}")
-            button.click()
-            click_count += 1
-        else:
-            button=WebDriverWait(driver,10).until(EC.presence_of_element_located((By.PARTIAL_LINK_TEXT,"Pick appropriate model ")))
-            print(f"button text {button.text}")
-            print(f"button text {button.text}")
-            button.click()
-            click_count += 1
-        #if flag == 2:
-        #    learn_link=driver.find_element(By.PARTIAL_LINK_TEXT,"Learn More")
-        #    print(f"learn_link text flag 2: {learn_link.text}")
-        #    button=driver.find_element(By.CLASS_NAME,"getstarted")
-        #    print(f"link button flag two: {button.text}")
-        ##doClick(button, driver)
+        try:
+            uri ='https://diclotrans.com/redirect?id=19334&auth=c506479a454684638d2c7b8d647d9387b57c714e'
+            x_path='//a[@href="'+uri+'"]'
+            link=WebDriverWait(driver,10).until(EC.presence_of_element_located((By.XPATH,x_path)))
+            click(driver,link)
+        except Exception as e:
+            print(str(e))
+            try:
+                click_divs(driver)
+            except Exception as e:
+                print(str(e))
+                try:
+                    locator=(By.TAG_NAME,"iframe")
+                    click_frames(driver,locator)
+                except Exception as e:
+                    print(str(e))
+                    try:
+                        locator=(By.XPATH,"/html/iframe")
+                        click_frames(driver,locator)
+                    except Exception as e:
+                        print(str(e))
+                        
+        print(click_count)
         print(driver.execute_script('return navigator.userAgent'))
-        ##butt = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "iframe")))
-        ##doClick(butt,driver)
     except Exception as e:
         print('Timeout Exception error:'+str(e))
     finally:
         driver.close()
         driver.quit()
-def start_single_scrape(url,click_count):
+
+
+def start_single_scrape(url):
     try:
-        r=requests.get('http://pubproxy.com/api/proxy')
+        r=requests.get('http://pubproxy.com/api/proxy?https=true')
         data=r.json()
         my_data=data['data']
         prxy_data=my_data[0]
         prxy=prxy_data['ip']+':'+prxy_data['port']
         print(data)
         driver=firefoxdriver(prxy)
-        start_scraping(driver,url,click_count)
+        start_scraping(driver,url)
     except Exception as e:
         print('Proxy timeout limits:'+str(e))
-        print(r.status_code)
-def thread_action(url,click_count,batch=[]):
+def thread_action(url,batch=[]):
     for prxy in batch:
         try:
             driver=firefoxdriver(prxy)
-            start_scraping(driver,url,click_count)
+            driver.set_window_size(340,695)
+            start_scraping(driver,url)
         except Exception as e:
             print('Proxy Exception error:'+str(e))
-def start_scraping_threads(url,click_count):
+def start_scraping_threads(url):
     prxy_list=get_prxy_list()
     if len(prxy_list) > 0:
         thread_count=len(prxy_list)/100
         for i in range(0,len(prxy_list),100):
             batch =prxy_list[i:i+100]
-            scraping_thread = threading.Thread(target=thread_action,args=(url,click_count,batch))
+            scraping_thread = threading.Thread(target=thread_action,args=(url,batch))
             scraping_thread.start()
-def launchScraper(url,click_count):
+def launchScraper(url):
     try:
-        start_single_scrape(url,click_count)
+        start_single_scrape(url)
     except Exception as e:
         print(f'Data not found :{str(e)}')
     finally:
-        start_scraping_threads(url,click_count)
-def start_main_loop():
-    click_count = 0
+        start_scraping_threads(url)
+click_count=0
+def start_main_loop(prxy_flag):
+    global click_count
     total_clicks = 6273
     count_break = randint(4777,total_clicks)
     url="https://tpsychic.onrender.com/"
     koyeb_url="https://tdemo-safuh.koyeb.app/"
-    while click_count <= count_break:
-        url_thread = threading.Thread(target=launchScraper,args=(url,click_count))
-        koyeb_url_thread = threading.Thread(target=launchScraper,args=(koyeb_url,click_count))
-        url_thread.start()
-        koyeb_url_thread.start()
+    if prxy_flag :
+        while click_count <= count_break:
+            url_thread = threading.Thread(target=no_proxy_scrape,args=(url,))
+            ua_thread = threading.Thread(target=ua_scrape,args=(url,))
+            url_thread.start()
+            ua_thread.start()
+    else:
+        while click_count <= count_break:
+            print(f"loop counter :{click_count}")
+            ua_thread = threading.Thread(target=ua_scrape,args=(url,))
+            ua_thread.start()
+            launchScraper(url)
+        #url_thread = threading.Thread(target=launchScraper,args=(url,click_count))
+        #koyeb_url_thread = threading.Thread(target=launchScraper,args=(koyeb_url,click_count))
+        #url_thread.start()
+        #koyeb_url_thread.start()
+
+def with_ua():
+    binary = FirefoxBinary(os.path.join(BASE_DIR,'Mozilla Firefox\\firefox.exe'))
+    options = firefox_options()
+    options.add_argument('--dsiable-blink-features=AutomationControlled')
+    options.add_argument('--disable-popup-blocking')
+    options.add_argument('--disable-extensions')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--disable-dev-shm-usage')
+    ua_agents = get_ua_agents()
+    agents=ua_agents[randrange(0,len(ua_agents))]
+    options.add_argument(f'--user-agent={agents}')
+    options.headless=True
+    #service = FirefoxService()
+    driver = FirefoxDriver(options=options,executable_path=os.path.join(BASE_DIR,'geckodriver.exe'),firefox_binary=binary)
+    return driver
+    
+def bilaproxy():
+    binary = FirefoxBinary(os.path.join(BASE_DIR,'Mozilla Firefox\\firefox.exe'))
+    options = firefox_options()
+    options.add_argument('--dsiable-blink-features=AutomationControlled')
+    options.add_argument('--disable-popup-blocking')
+    options.add_argument('--disable-extensions')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--disable-dev-shm-usage')
+    options.headless=True
+    #service = FirefoxService()
+    driver = FirefoxDriver(options=options,executable_path=os.path.join(BASE_DIR,'geckodriver.exe'),firefox_binary=binary)
+    return driver
+def no_proxy_scrape(url):
+    try:
+        driver=bilaproxy()
+        #driver.set_window_size(340,695)
+        start_scraping(driver,url)
+    except Exception as e:
+        print('Proxy timeout limits:'+str(e))
+def ua_scrape(url):
+    try:
+        driver=with_ua()
+        driver.set_window_size(340,695)
+        start_scraping(driver,url)
+    except Exception as e:
+        print('Proxy timeout limits:'+str(e))
+
+if __name__ == "__main__":
+    start_main_loop(True)
 
 #binary = FirefoxBinary(os.path.join(BASE_DIR,'Mozilla Firefox\\firefox.exe'))
 #driver = FirefoxDriver(executable_path=os.path.join(BASE_DIR,'geckodriver.exe'),firefox_binary=binary)
