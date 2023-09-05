@@ -238,9 +238,11 @@ def start_main_loop(prxy_flag):
     total_clicks = 6273
     count_break = randint(4777,total_clicks)
     url="https://tpsychic.onrender.com/"
+    print(f"loop counter break:{count_break}")
     koyeb_url="https://tdemo-safuh.koyeb.app/"
     if prxy_flag :
         while click_count <= count_break:
+            print(f"loop counter :{click_count}")
             url_thread = threading.Thread(target=no_proxy_scrape,args=(url,))
             ua_thread = threading.Thread(target=ua_scrape,args=(url,))
             url_thread.start()
